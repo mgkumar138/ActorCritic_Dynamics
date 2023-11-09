@@ -11,4 +11,4 @@ Task setup:
 Useful functions:
 - Once an environment is initialized, the agent's trajectory for the last trial can be visualized using env.trajectory().
 - Once an agent is initialized, its value and policy maps in terms of the weights from the place cells to the critic and actor can be visuzliased using agent.plot_maps(env), with the initialized environment parameter.
-- The TD error across time can 
+- The TD error can be accessed using agent.td and stored in a list outside the training loop.
