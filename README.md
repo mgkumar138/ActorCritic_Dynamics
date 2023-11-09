@@ -1,3 +1,5 @@
+Dynamics of TD modulated Hebbian learning for spatial navigation to a single goal
+
 This repository contains the code:
 1) Replicate the place cell based actor-critic architecture and learning rules in Foster, Dayan, Morris 2000
 2) Replicate the experiment of target shift and re-learning setup in Zannone, Brzosko, Paulsen, Clopath 2018
