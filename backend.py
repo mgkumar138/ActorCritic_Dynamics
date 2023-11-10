@@ -16,8 +16,8 @@ class PC_AC_agent:
         self.pcs = np.concatenate([xx.reshape(-1,1), yy.reshape(-1,1)],axis=1)
 
         self.nact = nact  # number of action units
-        self.wC = np.random.normal(loc=0,scale=0.01, size=[len(self.pcs), 1]) #np.zeros([len(self.pcs), 1])  # critic weight matrix
-        self.wA = np.random.normal(loc=0,scale=0.01, size=[len(self.pcs), nact]) #np.zeros([len(self.pcs), nact])  # actor weight matrix
+        self.wC = np.random.normal(loc=0,scale=0.001, size=[len(self.pcs), 1]) #np.zeros([len(self.pcs), 1])  # critic weight matrix
+        self.wA = np.random.normal(loc=0,scale=0.001, size=[len(self.pcs), nact]) #np.zeros([len(self.pcs), nact])  # actor weight matrix
         self.gamma = 0.95  # discount factor
         self.beta = 2  # action temperature hyperparameters, higher --> more exploitation
     
