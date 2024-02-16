@@ -3,9 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
+def get_onehot_action(prob, nact=4):
+    A = np.random.choice(a=np.arange(nact), p=np.array(prob))
+    onehotg = np.zeros(nact)
+    onehotg[A] = 1
+    return onehotg
+
 # define Place Cell --> Actor-Critic agent
 class PC_AC_agent:
-    def __init__(self, npc=21,pcr=0.25, nact=4, alr=0.0075, clr=0.025):
+    def __init__(self, npc=21,pcr=0.25, nact=4, alr=0.0075, clr=0.025, seed=2023, gamma=0.95):
         self.npc = npc  # number of place cells tiling each dimension
         self.alr = alr  # actor learning rate
         self.clr = clr  # critic learning rate
@@ -14,10 +20,11 @@ class PC_AC_agent:
 
         xx, yy = np.meshgrid(self.pcspacing, self.pcspacing)
         self.pcs = np.concatenate([xx.reshape(-1,1), yy.reshape(-1,1)],axis=1)
-
         self.nact = nact  # number of action units
-        self.wC = np.random.normal(loc=0,scale=0.001, size=[len(self.pcs), 1]) #np.zeros([len(self.pcs), 1])  # critic weight matrix
-        self.wA = np.random.normal(loc=0,scale=0.001, size=[len(self.pcs), nact]) #np.zeros([len(self.pcs), nact])  # actor weight matrix
+
+        np.random.seed(seed)
+        self.wC = np.random.normal(loc=0,scale=1e-5, size=[len(self.pcs), 1]) #np.zeros([len(self.pcs), 1])  # critic weight matrix
+        self.wA = np.random.normal(loc=0,scale=1e-5, size=[len(self.pcs), nact]) #np.zeros([len(self.pcs), nact])  # actor weight matrix
         self.gamma = 0.95  # discount factor
         self.beta = 2  # action temperature hyperparameters, higher --> more exploitation
     
@@ -41,12 +48,10 @@ class PC_AC_agent:
         self.A = np.matmul(self.h, self.wA)
 
         # choose action using stochastic policy
-        self.prob = self.softmax(self.beta* self.A)
-        A = np.random.choice(np.arange(self.nact), p=self.prob)
+        self.prob = self.softmax(self.beta * self.A)
 
-        # convert action to onehot
-        self.onehotg = np.zeros(self.nact)
-        self.onehotg[A] = 1
+        # choose a single action from action probability distribution
+        self.onehotg = get_onehot_action(self.prob,nact=self.nact)
         return self.onehotg
 
     def learn(self, newstate, reward):
@@ -59,23 +64,24 @@ class PC_AC_agent:
         # update weights at each timestep when TD is computed using 2 & 3 factor Hebbian rule
         self.wC += self.clr * self.h[:,None] * self.td
         self.wA += self.alr * np.matmul(self.h[:,None], self.onehotg[:,None].T) * self.td
-        
-    
-    def plot_maps(self, env, title=None):
-        plt.figure()
-        plt.title(title)
-        plt.imshow(self.wC.reshape(self.npc, self.npc), origin='lower')
-        plt.colorbar()
-        dir = np.matmul(self.wA, env.onehot2dirmat)
-        xx, yy = np.meshgrid(np.arange(self.npc), np.arange(self.npc))
-        plt.quiver(xx.reshape(-1),yy.reshape(-1), dir[:,0], dir[:,1], color='w', scale_units='xy',scale=None)
-        plt.show()
 
+
+def plot_maps(env, npc, actor_weights,critic_weights=None, title='Agent map'):
+    plt.figure()
+    plt.title(title)
+    if critic_weights is not None:
+        plt.imshow(critic_weights.reshape([npc, npc]), origin='lower')
+        plt.colorbar()
+    dirction = np.matmul(actor_weights, env.onehot2dirmat)
+    xx, yy = np.meshgrid(np.arange(npc), np.arange(npc))
+    plt.quiver(xx.reshape(-1),yy.reshape(-1), dirction[:,0], dirction[:,1], color='k', scale_units='xy')
+    plt.gca().set_aspect('equal')
+    plt.show()
 
 
 # environment
 class TwoDimNav:
-    def __init__(self,obstacles=False, maxspeed=0.1, envsize=1, goalsize=0.1, seed=2023, tmax=100, goalcoord=[0,0.8], startcoord='corners') -> None:
+    def __init__(self,obstacles=False, maxspeed=0.1, envsize=1, goalsize=0.1, tmax=100, goalcoord=[0,0.8], startcoord='corners') -> None:
         self.tmax = tmax  # maximum steps per trial
         self.minsize = -envsize  # arena size
         self.maxsize = envsize
@@ -98,7 +104,6 @@ class TwoDimNav:
         self.maxspeed = maxspeed  # max agent speed per step
 
         self.obstacles = obstacles
-        self.e = 0 if seed is None else seed
 
         # convert agent's onehot vector action to direction in the arena
         self.onehot2dirmat = np.array([
@@ -114,8 +119,6 @@ class TwoDimNav:
 
     
     def reset(self):
-        self.e +=1
-
         if len(self.starts) > 2:
             np.random.seed(self.e)
             startidx = np.random.choice(np.arange(len(self.starts)),1)
@@ -123,8 +126,6 @@ class TwoDimNav:
         else:
             self.state = self.starts.copy()
         
-        print(self.state)
-
         self.error = self.goal - self.state
         self.eucdist = np.linalg.norm(self.error,ord=2)
         self.done = False
@@ -136,7 +137,7 @@ class TwoDimNav:
 
         self.actions = np.zeros(self.statesize)
 
-        print(f"State: {self.state}, Goal: {self.goal}")
+        #print(f"State: {self.state}, Goal: {self.goal}")
         return self.state, self.goal, self.error, self.done
 
     
@@ -155,19 +156,19 @@ class TwoDimNav:
 
         # check if new state crosses obstacles if initalized
         if self.obstacles:
-            if  -0.6 < newstate[0] < -0.4 and  0.3 < newstate[1] < 1:  # top left obs
+            if  -0.6 < newstate[0] < -0.3 and  0.25 < newstate[1] < 1:  # top left obs
                 newstate = self.state.copy()
                 self.actions = np.zeros(self.statesize)
             
-            if  -0.6 < newstate[0] < -0.4 and  -1 < newstate[1] < -0.3:  # bottom left obs
+            if  -0.6 < newstate[0] < -0.3 and  -1 < newstate[1] < -0.25:  # bottom left obs
                 newstate = self.state.copy()
                 self.actions = np.zeros(self.statesize)
             
-            if  0.4 < newstate[0] < 0.6 and  0.3 < newstate[1] < 1:  # top right obs
+            if  0.3 < newstate[0] < 0.6 and  0.25 < newstate[1] < 1:  # top right obs
                 newstate = self.state.copy()
                 self.actions = np.zeros(self.statesize)
             
-            if  0.4 < newstate[0] < 0.6 and  -1 < newstate[1] < -0.3:  # top right obs
+            if  0.3 < newstate[0] < 0.6 and  -1 < newstate[1] < -0.25:  # top right obs
                 newstate = self.state.copy()
                 self.actions = np.zeros(self.statesize)
         
@@ -190,8 +191,7 @@ class TwoDimNav:
         plt.figure()
         plt.title(f'2D {title}')
         plt.axis([self.minsize, self.maxsize, self.minsize, self.maxsize])
-        plt.grid()
-
+        #plt.grid()
         if self.obstacles:
             plt.gca().add_patch(Rectangle((-0.6,0.3), 0.2, 0.7, facecolor='grey'))  # top left
             plt.gca().add_patch(Rectangle((0.4,0.3), 0.2, 0.7, facecolor='grey'))  # top right
@@ -203,7 +203,5 @@ class TwoDimNav:
         plt.gca().add_patch(circle)
         plt.scatter(np.array(self.track)[1,0],np.array(self.track)[1,1], color='g', zorder=2)    
         plt.plot(np.array(self.track)[1:,0],np.array(self.track)[1:,1], marker='o',color='b', zorder=1)
-
         plt.gca().set_aspect('equal')
-        
         
