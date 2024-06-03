@@ -120,7 +120,7 @@ class TwoDimNav:
 
     
     def reset(self):
-        if len(self.starts) > 2:
+        if len(self.starts) > 1:
             np.random.seed(self.e)
             startidx = np.random.choice(np.arange(len(self.starts)),1)
             self.state = self.starts[startidx].copy()[0]
