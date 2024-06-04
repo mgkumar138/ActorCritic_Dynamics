@@ -36,7 +36,6 @@ class TwoDimNav:
             self.starts = np.array([0.0,0.0])  # agent starts from the center
         else:
             self.starts = np.array(startcoord)
-            print(startcoord)
 
         self.actionsize = 4
         self.maxspeed = maxspeed  # max agent speed per step
