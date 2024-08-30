@@ -135,7 +135,7 @@ class TwoDimNav:
         self.track.append(self.goal.copy())
         self.track.append(self.state.copy())
 
-        self.actions = np.zeros(self.statesize)
+        self.velocity = np.zeros(self.statesize)
 
         #print(f"State: {self.state}, Goal: {self.goal}")
         return self.state, self.goal, self.error, self.done
@@ -143,34 +143,34 @@ class TwoDimNav:
     
     def step(self, g):
         self.t +=1
-        velocity = self.action2velocity(g)  # get velocity from agent's onehot action
-        self.actions += 0.25 * velocity  # smoothen actions so that agent explores the entire arena. From Foster et al. 2000
-        newstate = self.state.copy() + self.actions * self.maxspeed  # update state with action velocity
+        acceleration = self.action2velocity(g) * self.maxspeed # get acceleration from agent's onehot action and bound it to the max speed
+        self.velocity += 0.25 * acceleration  # smoothen acceleration so that agent's movement is not erratic. From Foster et al. 2000
+        newstate = self.state.copy() + self.velocity  # update state with velocity
 
         self.track.append(self.state.copy())
 
         # check if new state crosses boundary
         if (newstate > self.maxsize).any() or (newstate < self.minsize).any():
             newstate = self.state.copy()
-            self.actions = np.zeros(self.statesize)
+            self.velocity = np.zeros(self.statesize)
 
         # check if new state crosses obstacles if initalized
         if self.obstacles:
             if  -0.6 < newstate[0] < -0.3 and  0.25 < newstate[1] < 1:  # top left obs
                 newstate = self.state.copy()
-                self.actions = np.zeros(self.statesize)
+                self.velocity = np.zeros(self.statesize)
             
             if  -0.6 < newstate[0] < -0.3 and  -1 < newstate[1] < -0.25:  # bottom left obs
                 newstate = self.state.copy()
-                self.actions = np.zeros(self.statesize)
+                self.velocity = np.zeros(self.statesize)
             
             if  0.3 < newstate[0] < 0.6 and  0.25 < newstate[1] < 1:  # top right obs
                 newstate = self.state.copy()
-                self.actions = np.zeros(self.statesize)
+                self.velocity = np.zeros(self.statesize)
             
             if  0.3 < newstate[0] < 0.6 and  -1 < newstate[1] < -0.25:  # top right obs
                 newstate = self.state.copy()
-                self.actions = np.zeros(self.statesize)
+                self.velocity = np.zeros(self.statesize)
         
         # if new state does not violate boundary or obstacles, update new state
         self.state = newstate.copy()
